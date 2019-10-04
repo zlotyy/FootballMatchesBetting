@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using System.Collections.Generic;
+using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 
 namespace FootballMatchesBetting.Controllers
@@ -10,6 +8,13 @@ namespace FootballMatchesBetting.Controllers
     [ApiController]
     public class ValuesController : ControllerBase
     {
+        private readonly IMapper _mapper;
+
+        public ValuesController(IMapper mapper)
+        {
+            _mapper = mapper;
+        }
+
         // GET api/values
         [HttpGet]
         public ActionResult<IEnumerable<string>> Get()

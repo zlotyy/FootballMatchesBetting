@@ -1,14 +1,16 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+﻿using AutoMapper;
+using FootballMatchesBetting.Database;
+using LinqToDB.Data;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
+using NLog;
+using System.Reflection;
+using VueCliMiddleware;
+using ILogger = NLog.ILogger;
 
 namespace FootballMatchesBetting
 {
@@ -24,7 +26,19 @@ namespace FootballMatchesBetting
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddSingleton<ILogger>(LogManager.GetCurrentClassLogger());
             services.AddMvc().SetCompatibilityVersion(CompatibilityVersion.Version_2_2);
+
+            DataConnection.DefaultSettings = new DbConnectionSettings(Configuration.GetValue<string>("ConnectionStrings:DefaultConnection"));
+            services.AddTransient<IDbContextFactory, DbContextFactory>();
+
+            services.AddAutoMapper(Assembly.GetExecutingAssembly()); // TODO Sprawdzić czy ok
+
+            // In production, the Vue files will be served from this directory
+            services.AddSpaStaticFiles(configuration =>
+            {
+                configuration.RootPath = "wwwroot/dist";
+            });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -34,8 +48,36 @@ namespace FootballMatchesBetting
             {
                 app.UseDeveloperExceptionPage();
             }
+            else
+            {
+                app.UseExceptionHandler("/Error");
+            }
 
-            app.UseMvc();
+            app.UseStaticFiles();
+            app.UseSpaStaticFiles();
+
+            app.UseMvc(routes =>
+            {
+                routes.MapRoute(
+                    name: "default",
+                    template: "{controller}/{action=Index}/{id?}");
+            });
+
+            app.UseSpa(spa =>
+            {
+                spa.Options.SourcePath = "ClientApp";
+
+                if (env.IsDevelopment())
+                {
+                    spa.UseVueCli(npmScript: "serve", port: 8080);
+                    spa.UseProxyToSpaDevelopmentServer("http://localhost:8080");
+                }
+            });
+
+            app.UseForwardedHeaders(new ForwardedHeadersOptions
+            {
+                ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+            });
         }
     }
 }
